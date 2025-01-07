@@ -1,10 +1,23 @@
 [project]
-name = "bbc"
+authors = [
+    { name = "Louis Maddox", email = "louismmx@gmail.com" },
+]
+name = "bbcfw"
 version = "0.1.0"
-description = "Add your description here"
+description = "BBC News specific FineWeb dataset processing"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=3.2.0",
+    "huggingface-hub>=0.27.0",
     "polars>=1.19.0",
+    "tqdm>=4.67.1",
 ]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project.license]
+text = "MIT"
+
