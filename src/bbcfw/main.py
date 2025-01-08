@@ -75,6 +75,7 @@ for subset_name in tqdm(config_names[:10]):
                 news_df = pl.read_parquet(parquet_cache_chunk)
             except:
                 print(f"Failed to read {parquet_cache_chunk}")
+                raise
         else:
             print(f"Processing {source_url}")
             # Drop query parameters if ? in URL, drop any non-BBC News domain URLs
