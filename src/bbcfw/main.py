@@ -2,7 +2,7 @@ from functools import partial
 from pathlib import Path
 
 import polars as pl
-from datasets import Dataset, load_dataset_builder
+from datasets import Dataset, get_dataset_config_names, load_dataset_builder
 from datasets.exceptions import DatasetNotFoundError
 from huggingface_hub import login
 from tqdm import tqdm
@@ -46,12 +46,11 @@ config_names = source_files["config_name"].unique().sort()
 def ds_subset_exists(dataset_id: str, subset_name: str) -> bool:
     """Check that the dataset exists, and if so whether the config name is in it."""
     try:
-        configs = load_dataset_builder(dataset_id).builder_configs
+        configs = get_dataset_config_names(dataset_id)
     except DatasetNotFoundError:
         print(f"The dataset {dataset_id} was not found.")
         return False
     else:
-        print(f"Configs: {list(configs)}")
         return subset_name in list(configs)
 
 
@@ -72,7 +71,10 @@ for subset_name in tqdm(config_names[:10]):
     def process_subset_chunk(source_url: str) -> Path:
         parquet_cache_chunk = dataset_cache_path(source_url)
         if parquet_cache_chunk.exists():
-            news_df = pl.read_parquet(parquet_cache_chunk)
+            try:
+                news_df = pl.read_parquet(parquet_cache_chunk)
+            except:
+                print(f"Failed to read {parquet_cache_chunk}")
         else:
             print(f"Processing {source_url}")
             # Drop query parameters if ? in URL, drop any non-BBC News domain URLs
@@ -92,7 +94,7 @@ for subset_name in tqdm(config_names[:10]):
             news_df.sink_parquet(parquet_cache_chunk)
         return parquet_cache_chunk
 
-    for url in list(hf_urls["url"]):
+    for url in tqdm(list(hf_urls["url"])):
         parquet_cache_chunk = process_subset_chunk(url)
         pq_caches.append(parquet_cache_chunk)
 
