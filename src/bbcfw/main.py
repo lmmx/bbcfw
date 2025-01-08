@@ -54,8 +54,8 @@ def ds_subset_exists(dataset_id: str, subset_name: str) -> bool:
         return subset_name in list(configs)
 
 
-def process_all_subsets():
-    for subset_name in tqdm(config_names):
+def process_all_subsets(reverse: bool=False):
+    for subset_name in tqdm(config_names[::-1] if reverse else config_names):
         try:
             # Skip any existing subsets entirely
             if ds_subset_exists(dataset_id=result_dataset_id, subset_name=subset_name):
