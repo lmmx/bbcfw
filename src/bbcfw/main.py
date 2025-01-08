@@ -54,56 +54,73 @@ def ds_subset_exists(dataset_id: str, subset_name: str) -> bool:
         return subset_name in list(configs)
 
 
-for subset_name in tqdm(config_names[:10]):
-    # Skip any existing subsets entirely
-    if ds_subset_exists(dataset_id=result_dataset_id, subset_name=subset_name):
-        print(f"Skipping {subset_name} as it exists")
-        continue
-    else:
-        print(f"The subset {subset_name} doesn't exist, creating it")
-    hf_urls = source_files.filter(pl.col("config_name") == subset_name).select(
-        url=f"hf://datasets/{dataset_id}/" + pl.col("name")
-    )
-    pq_caches = []
-
-    def process_subset_chunk(source_url: str) -> Path:
-        parquet_cache_chunk = dataset_cache_path(source_url)
-        if parquet_cache_chunk.exists():
-            try:
-                news_df = pl.read_parquet(parquet_cache_chunk)
-            except:
-                print(f"Failed to read {parquet_cache_chunk}")
-                raise
-        else:
-            print(f"Processing {source_url}")
-            # Drop query parameters if ? in URL, drop any non-BBC News domain URLs
-            news_df = (
-                pl.scan_parquet(source_url, parallel="prefiltered")
-                .select("url", "text", "language")
-                .filter(pl.col("language") == "en")
-                .select(pl.col("url").str.extract(r"([^?]+)"), "text")
-                .filter(
-                    domain_col.str.contains(domain_match),
-                    ~pl.col("url").str.contains(
-                        r"https?://[^/]+\/\?"
-                    ),  # Path is not `/?`
-                )
-                .filter(domain_col.str.contains("news").or_(path_col == "/news/"))
+def process_all_subsets():
+    for subset_name in tqdm(config_names):
+        try:
+            # Skip any existing subsets entirely
+            if ds_subset_exists(dataset_id=result_dataset_id, subset_name=subset_name):
+                print(f"Skipping {subset_name} as it exists")
+                continue
+            else:
+                print(f"The subset {subset_name} doesn't exist, creating it")
+            hf_urls = source_files.filter(pl.col("config_name") == subset_name).select(
+                url=f"hf://datasets/{dataset_id}/" + pl.col("name")
             )
-            news_df.sink_parquet(parquet_cache_chunk)
-        return parquet_cache_chunk
+            pq_caches = []
 
-    for url in tqdm(list(hf_urls["url"])):
-        parquet_cache_chunk = process_subset_chunk(url)
-        pq_caches.append(parquet_cache_chunk)
+            def process_subset_chunk(source_url: str) -> Path:
+                parquet_cache_chunk = dataset_cache_path(source_url)
+                if parquet_cache_chunk.exists():
+                    try:
+                        news_df = pl.read_parquet(parquet_cache_chunk)
+                    except:
+                        print(f"Failed to read {parquet_cache_chunk}")
+                        raise
+                else:
+                    print(f"\nProcessing {source_url}")
+                    # Drop query parameters if ? in URL, drop any non-BBC News domain URLs
+                    news_df = (
+                        pl.scan_parquet(source_url, parallel="prefiltered")
+                        .select("url", "text", "language")
+                        .filter(pl.col("language") == "en")
+                        .select(pl.col("url").str.extract(r"([^?]+)"), "text")
+                        .filter(
+                            domain_col.str.contains(domain_match),
+                            ~pl.col("url").str.contains(
+                                r"https?://[^/]+\/\?"
+                            ),  # Path is not `/?`
+                        )
+                        .filter(
+                            domain_col.str.contains("news").or_(path_col == "/news/")
+                        )
+                    )
+                    news_df.sink_parquet(parquet_cache_chunk)
+                return parquet_cache_chunk
 
-    # Reload once all parts completed and upload
-    aggregator = pl.read_parquet(pq_caches)
+            for url in tqdm(list(hf_urls["url"])):
+                parquet_cache_chunk = process_subset_chunk(url)
+                pq_caches.append(parquet_cache_chunk)
 
-    news_data = aggregator.to_dict(as_series=False)
-    news_dataset = Dataset.from_dict(news_data)
-    news_dataset.push_to_hub(
-        result_dataset_id,
-        config_name=subset_name,
-        private=False,
-    )
+            # Reload once all parts completed and upload
+            aggregator = pl.read_parquet(pq_caches)
+
+            news_data = aggregator.to_dict(as_series=False)
+            news_dataset = Dataset.from_dict(news_data)
+            news_dataset.push_to_hub(
+                result_dataset_id,
+                config_name=subset_name,
+                private=False,
+            )
+        except KeyboardInterrupt:
+            print("\nGracefully shutting down - current subset was not completed")
+            return  # Exit cleanly
+        except Exception as e:
+            print(f"\nError processing subset {subset_name}: {str(e)}")
+            continue  # Skip to next subset
+
+
+if __name__ == "__main__":
+    try:
+        process_all_subsets()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
