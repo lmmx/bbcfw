@@ -61,10 +61,8 @@ for subset_name in tqdm(config_names[:10]):
         continue
     else:
         print(f"The subset {subset_name} doesn't exist, creating it")
-    hf_urls = (
-        source_files.filter(pl.col("config_name") == subset_name)
-        .select(url=f"hf://datasets/{dataset_id}/" + pl.col("name"))
-        .head(2)
+    hf_urls = source_files.filter(pl.col("config_name") == subset_name).select(
+        url=f"hf://datasets/{dataset_id}/" + pl.col("name")
     )
     pq_caches = []
 
