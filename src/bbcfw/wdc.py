@@ -14,7 +14,7 @@ from bbcfw.core.caching import make_cache_path, mktemp_cache_dir
 login(new_session=False)
 
 username = "permutans"
-result_dataset_name = "wdc-jsonld-historical"
+result_dataset_name = "wdc-common-crawl-embedded-jsonld"
 result_dataset_id = f"{username}/{result_dataset_name}"
 repo_id = "wbsg-uni-mannheim/wdc-page"
 REPO_URL = f"https://github.com/{repo_id}.git"
