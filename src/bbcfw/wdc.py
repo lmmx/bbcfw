@@ -75,16 +75,13 @@ def process_all_years(repo_path: Path):
                     try:
                         # Verify we can read the cached file
                         df = pl.read_parquet(parquet_cache_chunk)
-                    except:
+                    except Exception:
                         print(f"Failed to read {parquet_cache_chunk}")
                         raise
                 else:
                     print(f"\nProcessing {source_url}")
                     df = pl.read_csv(
-                        source_url,
-                        separator="\n",
-                        has_header=False,
-                        comment_prefix="#",
+                        source_url, separator="\n", has_header=False, comment_prefix="#"
                     ).select(parse_line)
                     df.write_parquet(parquet_cache_chunk)
                 return parquet_cache_chunk
