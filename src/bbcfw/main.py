@@ -54,7 +54,7 @@ def ds_subset_exists(dataset_id: str, subset_name: str) -> bool:
         return subset_name in list(configs)
 
 
-def process_all_subsets(reverse: bool=False):
+def process_all_subsets(reverse: bool = False):
     for subset_name in tqdm(config_names[::-1] if reverse else config_names):
         try:
             # Skip any existing subsets entirely
@@ -111,6 +111,8 @@ def process_all_subsets(reverse: bool=False):
                 config_name=subset_name,
                 private=False,
             )
+            for used_pq in pq_caches:
+                used_pq.unlink()
         except KeyboardInterrupt:
             print("\nGracefully shutting down - current subset was not completed")
             return  # Exit cleanly
